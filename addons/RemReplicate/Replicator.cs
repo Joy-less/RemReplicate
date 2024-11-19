@@ -12,6 +12,7 @@ namespace RemReplicate;
 public partial class Replicator : Node {
     [Export] public double ReplicateHz = 20;
     [Export] public PackedScene[] ReplicatedScenes = [];
+    [Export] public bool DestroyEntitiesWhenDisconnected = true;
 
     [Signal] public delegate void SpawnEventHandler(Entity Entity);
     [Signal] public delegate void DespawnEventHandler(Entity Entity);
@@ -29,8 +30,10 @@ public partial class Replicator : Node {
     }
     public override void _Process(double Delta) {
         // Destroy all entities when disconnected
-        if (!IsInstanceValid(Multiplayer.MultiplayerPeer)) {
-            DestroyEntities();
+        if (DestroyEntitiesWhenDisconnected) {
+            if (!IsInstanceValid(Multiplayer.MultiplayerPeer)) {
+                DestroyEntities();
+            }
         }
     }
     public void Setup() {
