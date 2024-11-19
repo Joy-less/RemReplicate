@@ -27,6 +27,12 @@ public partial class Replicator : Node {
     public override void _Ready() {
         Setup();
     }
+    public override void _Process(double Delta) {
+        // Destroy all entities when disconnected
+        if (!IsInstanceValid(Multiplayer.MultiplayerPeer)) {
+            DestroyEntities();
+        }
+    }
     public void Setup() {
         // Setup each scene for replication
         foreach (PackedScene Scene in ReplicatedScenes) {
