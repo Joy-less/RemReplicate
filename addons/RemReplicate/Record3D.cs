@@ -6,7 +6,7 @@ using Godot;
 namespace RemReplicate;
 
 public abstract partial record Record3D : Record {
-    public Vector3 Position = new();
-    public Vector3 Rotation = new();
-    public Vector3 Scale = new(1, 1, 1);
+    public Vector3 Position { get; set; } = new();
+    public Vector3 Rotation { get; set; } = new();
+    public Vector3 Scale { get; set; } = new(1, 1, 1);
 }

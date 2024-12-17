@@ -9,8 +9,8 @@ public abstract partial class Entity3D : Entity {
     public float RotationWeight = 0.7f;
     public float ScaleWeight = 1f;
 
-    public abstract override Record3D Record {get;}
-    public abstract Node3D Node3D {get;}
+    public abstract override Record3D Record { get; }
+    public abstract Node3D Node3D { get; }
 
     public override void _Ready() {
         base._Ready();
@@ -60,7 +60,7 @@ public abstract partial class Entity3D : Entity {
         return DistanceTo(OtherEntity?.Position);
     }
 
-    public Vector3 Position {get => Node3D.Position; set => Node3D.Position = value;}
-    public Vector3 Rotation {get => Node3D.Rotation; set => Node3D.Rotation = value;}
-    public Vector3 Scale {get => Node3D.Scale; set => Node3D.Scale = value;}
+    public Vector3 Position { get => Node3D.Position; set => Node3D.Position = value; }
+    public Vector3 Rotation { get => Node3D.Rotation; set => Node3D.Rotation = value; }
+    public Vector3 Scale { get => Node3D.Scale; set => Node3D.Scale = value; }
 }

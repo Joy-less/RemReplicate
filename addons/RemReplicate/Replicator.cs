@@ -17,7 +17,7 @@ public partial class Replicator : Node {
     [Signal] public delegate void SpawnEventHandler(Entity Entity);
     [Signal] public delegate void DespawnEventHandler(Entity Entity);
 
-    public static Replicator Main {get; private set;} = null!;
+    public static Replicator Main { get; private set; } = null!;
 
     private readonly Dictionary<string, PackedScene> Scenes = []; // { entity type, template scene }
     private readonly Dictionary<string, Node> Folders = []; // { entity type, parent node }

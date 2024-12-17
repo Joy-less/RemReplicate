@@ -7,7 +7,7 @@ using ImmediateReflection;
 namespace RemReplicate;
 
 public abstract record Record {
-    public Guid Id = Guid.NewGuid();
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     public string GetRecordType() {
         return Replicator.GetEntityTypeFromTypeOfRecord(this.GetImmediateType());

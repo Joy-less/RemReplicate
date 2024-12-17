@@ -14,7 +14,7 @@ namespace RemReplicate;
 public abstract partial class Entity : Node {
     [Signal] public delegate void ReplicateEventHandler(string PropertyName);
 
-    public abstract Record Record {get;}
+    public abstract Record Record { get; }
     public abstract void SetRecord(Record Value);
     public FrozenDictionary<string, Property> Properties => CachedProperties ??= Property.GetProperties(Record);
     public EntityRef Ref => CachedRef ??= new EntityRef(GetEntityType(), Record.Id);
