@@ -4,15 +4,16 @@ A network multiplayer replication framework for Godot C#.
 
 ## Disclaimer
 
-There are several ways to solve network replication. This implementation is designed for use in [Blood Lines](https://youtu.be/4ptBKI0cGhI), an upcoming MMORPG.
+There are several ways to solve network replication. This implementation was designed for use in [Blood Lines](https://youtu.be/4ptBKI0cGhI), but can be used freely in your project.
 
 ## Features
 
 - Encapsulate your entity's properties in a record.
 - Automatically spawns/despawns entities from the server to the clients.
 - Automatically replicates record properties from the owner to other peers.
-- You can set the owner of an individual property.
+- Set the network owner of individual properties.
 - Records are designed to be storable in databases like [SQLiteSharp](https://github.com/Joy-less/SQLiteSharp) and [LiteDB](https://github.com/mbdavid/LiteDB).
+- Created for use in a real [MMORPG](https://youtu.be/4ptBKI0cGhI).
 
 ## Dependencies
 
