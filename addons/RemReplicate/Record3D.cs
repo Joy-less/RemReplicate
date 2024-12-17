@@ -1,5 +1,4 @@
 #nullable enable
-#pragma warning disable IDE0130
 
 using Godot;
 

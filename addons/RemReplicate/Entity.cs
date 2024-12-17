@@ -1,13 +1,10 @@
 #nullable enable
-#pragma warning disable IDE1006
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Frozen;
 using System.Linq;
 using Godot;
 using MemoryPack;
-using ImmediateReflection;
 
 namespace RemReplicate;
 
@@ -16,11 +13,12 @@ public abstract partial class Entity : Node {
 
     public abstract Record Record { get; }
     public abstract void SetRecord(Record Value);
-    public FrozenDictionary<string, Property> Properties => CachedProperties ??= Property.GetProperties(Record);
     public EntityRef Ref => CachedRef ??= new EntityRef(GetEntityType(), Record.Id);
 
+    internal Dictionary<string, Property> Properties => CachedProperties ??= Property.GetProperties(Record);
+
     private readonly Dictionary<string, byte[]> PreviousProperties = [];
-    private FrozenDictionary<string, Property>? CachedProperties;
+    private Dictionary<string, Property>? CachedProperties;
     private EntityRef? CachedRef;
     private double TimeUntilReplicate;
 
@@ -46,7 +44,7 @@ public abstract partial class Entity : Node {
         return null!;
     }
     public string GetEntityType() {
-        return Replicator.GetEntityTypeFromTypeOfEntity(this.GetImmediateType());
+        return Replicator.GetEntityTypeFromTypeOfEntity(GetType());
     }
     public void ReplicateChangedProperties() {
         ForEachChangedProperty((string Name, byte[] Value) => {
@@ -127,11 +125,11 @@ public abstract partial class Entity : Node {
         }
     }
     public Dictionary<string, byte[]> GetChangedProperties() {
-        Dictionary<string, byte[]> All = [];
+        Dictionary<string, byte[]> ChangedProperties = [];
         ForEachChangedProperty((string Name, byte[] Value) => {
-            All[Name] = Value;
+            ChangedProperties[Name] = Value;
         });
-        return All;
+        return ChangedProperties;
     }
 
     [Rem(RemAccess.Authority, CallLocal = true)]

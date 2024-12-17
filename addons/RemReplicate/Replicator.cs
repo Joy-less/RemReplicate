@@ -1,11 +1,9 @@
 #nullable enable
-#pragma warning disable IDE1006
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using ImmediateReflection;
 
 namespace RemReplicate;
 
@@ -72,7 +70,7 @@ public partial class Replicator : Node {
     }
     public Entity SpawnEntity(Record Record) {
         // Get entity type from record
-        string EntityType = GetEntityTypeFromTypeOfRecord(Record.GetImmediateType());
+        string EntityType = GetEntityTypeFromTypeOfRecord(Record.GetType());
         // Create entity from record
         Entity Entity = Scenes[EntityType].Instantiate<Entity>();
         Entity.SetRecord(Record);
@@ -140,17 +138,17 @@ public partial class Replicator : Node {
             .OrderBy(Entity => Entity.DistanceTo(Position));
     }
 
-    public static string GetEntityTypeFromTypeOfEntity(ImmediateType EntityType) {
+    public static string GetEntityTypeFromTypeOfEntity(Type EntityType) {
         return EntityType.Name.TrimSuffix("Entity");
     }
-    public static string GetEntityTypeFromTypeOfRecord(ImmediateType RecordType) {
+    public static string GetEntityTypeFromTypeOfRecord(Type RecordType) {
         return RecordType.Name.TrimSuffix("Record");
     }
     public static string GetEntityTypeFromTypeOfEntity<T>() where T : Entity {
-        return GetEntityTypeFromTypeOfEntity(typeof(T).GetImmediateType());
+        return GetEntityTypeFromTypeOfEntity(typeof(T));
     }
     public static string GetEntityTypeFromTypeOfRecord<T>() where T : Record {
-        return GetEntityTypeFromTypeOfRecord(typeof(T).GetImmediateType());
+        return GetEntityTypeFromTypeOfRecord(typeof(T));
     }
     public static string GetEntityTypeFromScene(PackedScene Scene) {
         return Scene.ResourcePath.GetFile().GetBaseName();
