@@ -12,7 +12,7 @@ There are several ways to solve network replication. This implementation is desi
 - Automatically spawns/despawns entities from the server to the clients.
 - Automatically replicates record properties from the owner to other peers.
 - You can set the owner of an individual property.
-- Records are designed to be storable in document databases like [LiteDB](https://github.com/mbdavid/LiteDB).
+- Records are designed to be storable in databases like [SQLiteSharp](https://github.com/Joy-less/SQLiteSharp) and [LiteDB](https://github.com/mbdavid/LiteDB).
 
 ## Dependencies
 
@@ -21,11 +21,15 @@ There are several ways to solve network replication. This implementation is desi
 ## Setup
 
 1. Install [Rem Send](https://github.com/Joy-less/RemSend).
-2. Add the Rem Replicate addon to your project.
-3. Create a node and attach the `Replicator.cs` script.
+
+2. Add the Rem Replicate addon to your project and build your project.
+
+3. Create a `Replicator` node (or create a node and attach the `Replicator.cs` script).
 
 ## Sample
 
 Look inside the Sample folder for an example project.
+
 The server replicates a moving, coloured cube to the client.
+
 Run the project with 2 debug instances, where one instance has a `server` feature/argument.

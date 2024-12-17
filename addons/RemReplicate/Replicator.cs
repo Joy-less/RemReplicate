@@ -7,6 +7,7 @@ using Godot;
 
 namespace RemReplicate;
 
+[GlobalClass]
 public partial class Replicator : Node {
     [Export] public double ReplicateHz = 20;
     [Export] public PackedScene[] ReplicatedScenes = [];
