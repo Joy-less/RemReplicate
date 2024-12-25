@@ -170,7 +170,7 @@ public partial class Replicator : Node {
 
     private void _EntityAdded(Entity Entity, string EntityType) {
         // Ensure this is the multiplayer authority
-        if (!IsMultiplayerAuthority()) {
+        if (!IsActiveMultiplayerAuthority()) {
             return;
         }
         // Replicate entity spawn
@@ -178,7 +178,7 @@ public partial class Replicator : Node {
     }
     private void _EntityRemoved(Entity Entity, string EntityType) {
         // Ensure this is the multiplayer authority
-        if (!IsMultiplayerAuthority()) {
+        if (!IsActiveMultiplayerAuthority()) {
             return;
         }
         // Replicate entity despawn
@@ -186,7 +186,7 @@ public partial class Replicator : Node {
     }
     private void _PeerAdded(int PeerId) {
         // Ensure this is the multiplayer authority
-        if (!IsMultiplayerAuthority()) {
+        if (!IsActiveMultiplayerAuthority()) {
             return;
         }
         // Replicate all entities to peer
@@ -198,5 +198,8 @@ public partial class Replicator : Node {
                 Rem(PeerId, () => Entity.SetPropertyOwnerRem(Property.Name, Property.Owner));
             }
         }
+    }
+    private bool IsActiveMultiplayerAuthority() {
+        return Multiplayer?.MultiplayerPeer is not null && IsMultiplayerAuthority();
     }
 }

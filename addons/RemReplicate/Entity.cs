@@ -62,8 +62,12 @@ public abstract partial class Entity : Node {
         return GetPropertyOwner(PropertyName) == PeerId;
     }
     public bool IsPropertyOwner(string PropertyName) {
+        // Ensure local peer exists
+        if (GetReplicator()?.Multiplayer?.MultiplayerPeer is not MultiplayerPeer LocalPeer) {
+            return false;
+        }
         // Check if the local peer owns the property
-        return IsPropertyOwner(PropertyName, Replicator.Main.Multiplayer.GetUniqueId());
+        return IsPropertyOwner(PropertyName, LocalPeer.GetUniqueId());
     }
     public void SetPropertyOwner(string PropertyName, int PeerId) {
         // Get property by name
@@ -107,21 +111,21 @@ public abstract partial class Entity : Node {
     }
     public void ForEachChangedProperty(Action<string, byte[]> Callback) {
         // Check each property
-        foreach (Property Property in Properties.Values) {
+        foreach ((string PropertyName, Property Property) in Properties) {
             // Ensure local peer is property owner
-            if (Property.Owner != Replicator.Main.Multiplayer.GetUniqueId()) {
+            if (!IsPropertyOwner(PropertyName)) {
                 continue;
             }
             // Get and serialise property value
             byte[] Value = MemoryPackSerializer.Serialize(Property.Type, Property.Get());
             // Ensure property changed
-            if (PreviousProperties.TryGetValue(Property.Name, out byte[]? PreviousValue) && PreviousValue.SequenceEqual(Value)) {
+            if (PreviousProperties.TryGetValue(PropertyName, out byte[]? PreviousValue) && PreviousValue.SequenceEqual(Value)) {
                 continue;
             }
             // Store new property value
-            PreviousProperties[Property.Name] = Value;
+            PreviousProperties[PropertyName] = Value;
             // Report property as changed
-            Callback(Property.Name, Value);
+            Callback(PropertyName, Value);
         }
     }
     public Dictionary<string, byte[]> GetChangedProperties() {
