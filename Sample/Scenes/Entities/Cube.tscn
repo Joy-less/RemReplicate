@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://cyk0154rxjd7t"]
 
-[ext_resource type="Script" path="res://Sample/Scripts/Entities/CubeEntity.cs" id="1_xuf65"]
+[ext_resource type="Script" uid="uid://c28o58n7j2kht" path="res://Sample/Scripts/Entities/CubeEntity.cs" id="1_xuf65"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5hsle"]
 
