@@ -8,12 +8,12 @@ using MemoryPack;
 namespace RemReplicate;
 
 public sealed class Property {
-    public readonly object Target;
-    public readonly string Name;
-    public readonly Type Type;
-    public readonly Func<object?> Get;
-    public readonly Action<object?> Set;
-    public int Owner = 1;
+    public object Target { get; }
+    public string Name { get; }
+    public Type Type { get; }
+    public Func<object?> Get { get; }
+    public Action<object?> Set { get; }
+    public int Owner { get; set; } = 1;
 
     private const BindingFlags Bindings = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
 

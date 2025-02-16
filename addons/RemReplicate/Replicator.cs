@@ -11,9 +11,9 @@ namespace RemReplicate;
 
 [GlobalClass]
 public partial class Replicator : Node {
-    [Export] public double ReplicateHz = 20;
-    [Export] public PackedScene[] ReplicatedScenes = [];
-    [Export] public bool DestroyEntitiesWhenDisconnected = true;
+    [Export] public double ReplicateHz { get; set; } = 20;
+    [Export] public PackedScene[] ReplicatedScenes { get; set; } = [];
+    [Export] public bool DestroyEntitiesWhenDisconnected { get; set; } = true;
 
     [Signal] public delegate void SpawnEventHandler(Entity Entity);
     [Signal] public delegate void DespawnEventHandler(Entity Entity);

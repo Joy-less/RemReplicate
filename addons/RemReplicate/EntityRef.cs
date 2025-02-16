@@ -7,6 +7,6 @@ namespace RemReplicate;
 
 [MemoryPackable]
 public partial record EntityRef(string Class, Guid Id) {
-    public readonly string Class = Class;
-    public readonly Guid Id = Id;
+    public string Class { get; } = Class;
+    public Guid Id { get; } = Id;
 }
