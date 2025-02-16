@@ -1,7 +1,7 @@
 using Godot;
 
 public partial class Client : Node {
-    public static readonly bool IsClient = !Server.IsServer;
+    public static bool IsClient { get; } = !Server.IsServer;
 
     public override void _Ready() {
         if (IsClient) {

@@ -2,7 +2,7 @@ using Godot;
 using RemReplicate;
 
 public partial class CubeEntity : Entity3D {
-    [Export] public required MeshInstance3D Mesh;
+    [Export] public required MeshInstance3D Mesh { get; set; }
 
     private CubeRecord _Record = new();
 

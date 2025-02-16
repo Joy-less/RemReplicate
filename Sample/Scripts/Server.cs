@@ -4,7 +4,7 @@ using Godot;
 using RemReplicate;
 
 public partial class Server : Node {
-    public static readonly bool IsServer = OS.HasFeature("server");
+    public static bool IsServer { get; } = OS.HasFeature("server");
 
     public override async void _Ready() {
         if (IsServer) {
