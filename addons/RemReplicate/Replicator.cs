@@ -3,7 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Godot;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -36,6 +38,9 @@ public partial class Replicator : Node {
         }
     }
     public void Setup() {
+        // Ensure the RemSendService static constructor is run
+        RuntimeHelpers.RunClassConstructor(typeof(RemSendService).TypeHandle);
+
         // Setup each scene for replication
         foreach (PackedScene Scene in ReplicatedScenes) {
             // Get entity type from scene
@@ -174,7 +179,7 @@ public partial class Replicator : Node {
             return;
         }
         // Replicate entity spawn
-        Rem(() => SpawnRem(EntityType, Entity.Record.Id, Entity.GetChangedProperties()));
+        BroadcastSpawnRem(EntityType, Entity.Record.Id, Entity.GetChangedProperties());
     }
     private void _EntityRemoved(Entity Entity, string EntityType) {
         // Ensure this is the multiplayer authority
@@ -182,7 +187,7 @@ public partial class Replicator : Node {
             return;
         }
         // Replicate entity despawn
-        Rem(() => DespawnRem(EntityType, Entity.Record.Id));
+        BroadcastDespawnRem(EntityType, Entity.Record.Id);
     }
     private void _PeerAdded(int PeerId) {
         // Ensure this is the multiplayer authority
@@ -192,10 +197,10 @@ public partial class Replicator : Node {
         // Replicate all entities to peer
         foreach (Entity Entity in GetEntities()) {
             // Replicate entity
-            Rem(PeerId, () => SpawnRem(Entity.GetEntityType(), Entity.Record.Id, Entity.GetProperties()));
+            SendSpawnRem(PeerId, Entity.GetEntityType(), Entity.Record.Id, Entity.GetProperties());
             // Replicate property owners
             foreach (Property Property in Entity.Properties.Values) {
-                Rem(PeerId, () => Entity.SetPropertyOwnerRem(Property.Name, Property.Owner));
+                Entity.SendSetPropertyOwnerRem(PeerId, Property.Name, Property.Owner);
             }
         }
     }

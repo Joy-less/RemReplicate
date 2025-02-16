@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using MemoryPack;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -48,7 +49,7 @@ public abstract partial class Entity : Node {
     }
     public void ReplicateChangedProperties() {
         ForEachChangedProperty((string Name, byte[] Value) => {
-            Rem(() => SetPropertyRem(Name, Value));
+            BroadcastSetPropertyRem(Name, Value);
         });
     }
     public int GetPropertyOwner(string PropertyName) {
@@ -75,7 +76,7 @@ public abstract partial class Entity : Node {
         if (Property.Owner == PeerId) {
             return;
         }
-        Rem(() => SetPropertyOwnerRem(PropertyName, PeerId));
+        BroadcastSetPropertyOwnerRem(PropertyName, PeerId);
     }
     public Dictionary<string, byte[]> GetProperties() {
         Dictionary<string, byte[]> All = [];
