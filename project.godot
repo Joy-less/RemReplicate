@@ -14,6 +14,13 @@ config/name="Rem Replicate"
 run/main_scene="res://Sample/Main.tscn"
 config/features=PackedStringArray("4.4", "C#", "Forward Plus")
 
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=360
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
 [dotnet]
 
 project/assembly_name="RemReplicate"
