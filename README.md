@@ -2,6 +2,9 @@
 
 A network multiplayer replication framework for Godot C#.
 
+> [!NOTE]
+> This addon only works in Godot 4.4, which is currently in beta.
+
 ## Disclaimer
 
 There are several ways to solve network replication. This implementation was designed for use in [Blood Lines](https://youtu.be/4ptBKI0cGhI), but can be used freely in your project.
@@ -31,6 +34,6 @@ There are several ways to solve network replication. This implementation was des
 
 Look inside the Sample folder for an example project.
 
-The server replicates a moving, coloured cube to the client.
+The server replicates a moving, colored cube to the client.
 
 Run the project with 2 debug instances, where one instance has a `server` feature/argument.
