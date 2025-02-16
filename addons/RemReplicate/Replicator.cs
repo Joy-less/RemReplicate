@@ -84,7 +84,7 @@ public partial class Replicator : Node {
         // Add entity to folder
         Folders[EntityType].AddChild(Entity);
         // Invoke event
-        EmitSignal(SignalName.Spawn, Entity);
+        EmitSignalSpawn(Entity);
         return Entity;
     }
     public bool DestroyEntity(string EntityType, Guid Id) {
@@ -92,7 +92,7 @@ public partial class Replicator : Node {
         if (GetEntity(EntityType, Id) is Entity Entity) {
             Entity.QueueFree();
             // Invoke event
-            EmitSignal(SignalName.Despawn, Entity);
+            EmitSignalDespawn(Entity);
             return true;
         }
         return false;

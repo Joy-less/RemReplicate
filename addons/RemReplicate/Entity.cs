@@ -94,7 +94,7 @@ public abstract partial class Entity : Node {
         Property Property = Properties[Name];
         Property.Set(MemoryPackSerializer.Deserialize(Property.Type, Value));
         // Invoke replicated event for each property
-        EmitSignal(SignalName.Replicate, Name);
+        EmitSignalReplicate(Name);
         _Replicate(Name);
     }
     public void SetProperties(IDictionary<string, byte[]> Entries) {
@@ -106,7 +106,7 @@ public abstract partial class Entity : Node {
         }
         // Invoke replicated event for each property
         foreach (string Name in Entries.Keys) {
-            EmitSignal(SignalName.Replicate, Name);
+            EmitSignalReplicate(Name);
             _Replicate(Name);
         }
     }
