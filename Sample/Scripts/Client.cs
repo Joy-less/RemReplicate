@@ -1,4 +1,5 @@
 using Godot;
+using RemSend;
 
 public partial class Client : Node {
     public static bool IsClient { get; } = !Server.IsServer;
@@ -22,6 +23,8 @@ public partial class Client : Node {
         }
         // Set peer
         Multiplayer.MultiplayerPeer = Peer;
+        // Setup RemSend
+        RemSendService.Setup((SceneMultiplayer)Multiplayer);
         return Error.Ok;
     }
 }

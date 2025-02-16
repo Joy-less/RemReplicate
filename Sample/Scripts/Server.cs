@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Godot;
 using RemReplicate;
+using RemSend;
 
 public partial class Server : Node {
     public static bool IsServer { get; } = OS.HasFeature("server");
@@ -31,6 +32,8 @@ public partial class Server : Node {
         }
         // Set peer
         Multiplayer.MultiplayerPeer = Peer;
+        // Setup RemSend
+        RemSendService.Setup((SceneMultiplayer)Multiplayer);
         // Return success
         return Error.Ok;
     }
