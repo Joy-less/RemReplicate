@@ -30,6 +30,12 @@ public partial class Replicator : Node {
         // Initialize replicator once
         Initialize();
     }
+    public override void _Process(double Delta) {
+        // Locally destroy all entities when disconnected
+        if (!Multiplayer.HasMultiplayerPeer() || Multiplayer.MultiplayerPeer.GetConnectionStatus() is not MultiplayerPeer.ConnectionStatus.Disconnected) {
+            DespawnEntities();
+        }
+    }
     public Entity SpawnEntity(Record Record) {
         // Get entity type from record
         string EntityType = GetEntityTypeFromTypeOfRecord(Record.GetType());
@@ -54,9 +60,9 @@ public partial class Replicator : Node {
         EmitSignalSpawn(Entity);
         return Entity;
     }
-    public bool DespawnEntity(string EntityType, Guid Id) {
+    public bool DespawnEntity(string Type, Guid Id) {
         // Find and destroy entity
-        if (GetEntity(EntityType, Id) is Entity Entity) {
+        if (GetEntity(Type, Id) is Entity Entity) {
             Entity.QueueFree();
             // Invoke event
             EmitSignalDespawn(Entity);
@@ -173,8 +179,6 @@ public partial class Replicator : Node {
         Multiplayer.PeerConnected += (long PeerId) => {
             _PeerAdded((int)PeerId);
         };
-        // Client: On server disconnect, locally destroy all entities
-        Multiplayer.ServerDisconnected += _ServerDisconnected;
     }
     private void _EntityAdded(Entity Entity, string EntityType) {
         // Ensure this is the server
@@ -206,9 +210,5 @@ public partial class Replicator : Node {
                 Entity.SendSetPropertyOwnerRem(PeerId, Property.Name, Property.Owner);
             }
         }
-    }
-    private void _ServerDisconnected() {
-        // Locally destroy all entities
-        DespawnEntities();
     }
 }

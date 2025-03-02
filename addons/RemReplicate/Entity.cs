@@ -61,12 +61,8 @@ public abstract partial class Entity : Node {
         return GetPropertyOwner(PropertyName) == PeerId;
     }
     public bool IsPropertyOwner(string PropertyName) {
-        // Ensure local peer exists
-        if (GetReplicator()?.Multiplayer?.MultiplayerPeer is not MultiplayerPeer LocalPeer) {
-            return false;
-        }
         // Check if the local peer owns the property
-        return IsPropertyOwner(PropertyName, LocalPeer.GetUniqueId());
+        return IsPropertyOwner(PropertyName, GetReplicator().Multiplayer.GetUniqueId());
     }
     public void SetPropertyOwner(string PropertyName, int PeerId) {
         // Get property by name
