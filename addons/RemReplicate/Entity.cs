@@ -48,9 +48,7 @@ public abstract partial class Entity : Node {
         return Replicator.GetEntityTypeFromTypeOfEntity(GetType());
     }
     public void ReplicateChangedProperties() {
-        ForEachChangedProperty((string Name, byte[] Value) => {
-            BroadcastSetPropertyRem(Name, Value);
-        });
+        ForEachChangedProperty(BroadcastSetPropertyRem);
     }
     public int GetPropertyOwner(string PropertyName) {
         // Get property by name

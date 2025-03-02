@@ -13,81 +13,48 @@ namespace RemReplicate;
 public partial class Replicator : Node {
     [Export] public double ReplicateHz { get; set; } = 20;
     [Export] public PackedScene[] ReplicatedScenes { get; set; } = [];
-    [Export] public bool DestroyEntitiesWhenDisconnected { get; set; } = true;
 
     [Signal] public delegate void SpawnEventHandler(Entity Entity);
     [Signal] public delegate void DespawnEventHandler(Entity Entity);
 
-    public static Replicator Main { get; private set; } = null!;
+    public static Replicator Singleton { get; private set; } = null!;
 
     private readonly Dictionary<string, PackedScene> Scenes = []; // { entity type, template scene }
     private readonly Dictionary<string, Node> Folders = []; // { entity type, parent node }
 
-    public override void _EnterTree() {
-        Main = this;
+    public Replicator() {
+        // Set as singleton
+        Singleton = this;
     }
     public override void _Ready() {
-        Setup();
-    }
-    public override void _Process(double Delta) {
-        // Destroy all entities when disconnected
-        if (DestroyEntitiesWhenDisconnected) {
-            if (!IsInstanceValid(Multiplayer.MultiplayerPeer)) {
-                DestroyEntities();
-            }
-        }
-    }
-    public void Setup() {
-        // Ensure the RemSendService static constructor is run
-        RuntimeHelpers.RunClassConstructor(typeof(RemSendService).TypeHandle);
-
-        // Setup each scene for replication
-        foreach (PackedScene Scene in ReplicatedScenes) {
-            // Get entity type from scene
-            string EntityType = GetEntityTypeFromScene(Scene);
-
-            // Create folder for entity type
-            Node Folder = new() {
-                Name = EntityType
-            };
-            AddChild(Folder);
-
-            // Spawn added entities with properties
-            Folder.ChildEnteredTree += Child => {
-                if (Child is Entity Entity) {
-                    _EntityAdded(Entity, EntityType);
-                }
-            };
-
-            // Despawn removed entities
-            Folder.ChildExitingTree += Child => {
-                if (Child is Entity Entity) {
-                    _EntityRemoved(Entity, EntityType);
-                }
-            };
-
-            // Add entity type to lookup tables
-            Scenes[EntityType] = Scene;
-            Folders[EntityType] = Folder;
-        }
-
-        // Replicate all entities to new peers
-        Multiplayer.PeerConnected += PeerId => _PeerAdded((int)PeerId);
+        // Initialize replicator once
+        Initialize();
     }
     public Entity SpawnEntity(Record Record) {
         // Get entity type from record
         string EntityType = GetEntityTypeFromTypeOfRecord(Record.GetType());
         // Create entity from record
         Entity Entity = Scenes[EntityType].Instantiate<Entity>();
-        Entity.SetRecord(Record);
         Entity.Name = Record.Id.ToString();
+        Entity.SetRecord(Record);
         // Add entity to folder
         Folders[EntityType].AddChild(Entity);
         // Invoke event
         EmitSignalSpawn(Entity);
         return Entity;
     }
-    public bool DestroyEntity(string EntityType, Guid Id) {
+    public Entity SpawnEntity(string Type, Guid Id, Dictionary<string, byte[]> Properties) {
+        // Create entity from scene
+        Entity Entity = Scenes[Type].Instantiate<Entity>();
+        Entity.Name = Id.ToString();
+        Entity.SetProperties(Properties);
+        // Add entity to folder
+        Folders[Type].AddChild(Entity);
+        // Invoke event
+        EmitSignalSpawn(Entity);
+        return Entity;
+    }
+    public bool DespawnEntity(string EntityType, Guid Id) {
         // Find and destroy entity
         if (GetEntity(EntityType, Id) is Entity Entity) {
             Entity.QueueFree();
@@ -97,15 +64,15 @@ public partial class Replicator : Node {
         }
         return false;
     }
-    public bool DestroyEntity(EntityRef Ref) {
-        return DestroyEntity(Ref.Class, Ref.Id);
+    public bool DespawnEntity(EntityRef Ref) {
+        return DespawnEntity(Ref.Class, Ref.Id);
     }
-    public bool DestroyEntity<TEntity>(Guid Id) where TEntity : Entity {
-        return DestroyEntity(GetEntityTypeFromTypeOfEntity<TEntity>(), Id);
+    public bool DespawnEntity<TEntity>(Guid Id) where TEntity : Entity {
+        return DespawnEntity(GetEntityTypeFromTypeOfEntity<TEntity>(), Id);
     }
-    public void DestroyEntities() {
+    public void DespawnEntities() {
         foreach (Entity Entity in GetEntities()) {
-            DestroyEntity(Entity.Ref);
+            DespawnEntity(Entity.Ref);
         }
     }
     public Entity GetEntity(string Type, Guid Id) {
@@ -162,36 +129,72 @@ public partial class Replicator : Node {
 
     [Rem(RemAccess.Authority)]
     protected void SpawnRem(string EntityType, Guid EntityId, Dictionary<string, byte[]> Properties) {
-        Entity Entity = Scenes[EntityType].Instantiate<Entity>();
-        Entity.Name = EntityId.ToString();
-        Entity.SetProperties(Properties);
-        Folders[EntityType].AddChild(Entity);
+        SpawnEntity(EntityType, EntityId, Properties);
     }
     [Rem(RemAccess.Authority)]
     protected void DespawnRem(string EntityType, Guid EntityId) {
-        Entity Entity = GetEntity(EntityType, EntityId);
-        Entity.QueueFree();
+        DespawnEntity(EntityType, EntityId);
     }
 
+    private void Initialize() {
+        // Ensure RemSendService is initialized
+        RuntimeHelpers.RunClassConstructor(typeof(RemSendService).TypeHandle);
+
+        // Setup each scene for replication
+        foreach (PackedScene Scene in ReplicatedScenes) {
+            // Get entity type from scene
+            string EntityType = GetEntityTypeFromScene(Scene);
+
+            // Create folder for entity type
+            Node Folder = new() {
+                Name = EntityType
+            };
+            AddChild(Folder);
+
+            // Server: On entity added, replicate spawn entity
+            Folder.ChildEnteredTree += (Node Child) => {
+                if (Child is Entity Entity) {
+                    _EntityAdded(Entity, EntityType);
+                }
+            };
+            // Server: On entity removed, replicate despawn entity
+            Folder.ChildExitingTree += (Node Child) => {
+                if (Child is Entity Entity) {
+                    _EntityRemoved(Entity, EntityType);
+                }
+            };
+
+            // Add entity type to lookup tables
+            Scenes[EntityType] = Scene;
+            Folders[EntityType] = Folder;
+        }
+
+        // Server: On client connect, replicate spawn all entities
+        Multiplayer.PeerConnected += (long PeerId) => {
+            _PeerAdded((int)PeerId);
+        };
+        // Client: On server disconnect, locally destroy all entities
+        Multiplayer.ServerDisconnected += _ServerDisconnected;
+    }
     private void _EntityAdded(Entity Entity, string EntityType) {
-        // Ensure this is the multiplayer authority
-        if (!IsActiveMultiplayerAuthority()) {
+        // Ensure this is the server
+        if (!IsMultiplayerAuthority()) {
             return;
         }
         // Replicate entity spawn
         BroadcastSpawnRem(EntityType, Entity.Record.Id, Entity.GetChangedProperties());
     }
     private void _EntityRemoved(Entity Entity, string EntityType) {
-        // Ensure this is the multiplayer authority
-        if (!IsActiveMultiplayerAuthority()) {
+        // Ensure this is the server
+        if (!IsMultiplayerAuthority()) {
             return;
         }
         // Replicate entity despawn
         BroadcastDespawnRem(EntityType, Entity.Record.Id);
     }
     private void _PeerAdded(int PeerId) {
-        // Ensure this is the multiplayer authority
-        if (!IsActiveMultiplayerAuthority()) {
+        // Ensure this is the server
+        if (!IsMultiplayerAuthority()) {
             return;
         }
         // Replicate all entities to peer
@@ -204,7 +207,8 @@ public partial class Replicator : Node {
             }
         }
     }
-    private bool IsActiveMultiplayerAuthority() {
-        return Multiplayer?.MultiplayerPeer is not null && IsMultiplayerAuthority();
+    private void _ServerDisconnected() {
+        // Locally destroy all entities
+        DespawnEntities();
     }
 }
