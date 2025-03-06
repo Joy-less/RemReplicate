@@ -2,20 +2,12 @@
 
 A network multiplayer replication framework for Godot C#.
 
-> [!NOTE]
-> This addon only works in Godot 4.4, which is currently in beta.
-
-## Disclaimer
-
-There are several ways to solve network replication. This implementation was designed for use in [Blood Lines](https://youtu.be/4ptBKI0cGhI), but can be used freely in your project.
-
 ## Features
 
-- Encapsulate your entity's properties in a record.
-- Automatically spawns/despawns entities from the server to the clients.
-- Automatically replicates record properties from the owner to other peers.
-- Set the network owner of individual properties.
-- Records are designed to be storable in databases like [SQLiteSharp](https://github.com/Joy-less/SQLiteSharp) and [LiteDB](https://github.com/mbdavid/LiteDB).
+- Add the `[RemoteProperty]` attribute to replicate a property when changed.
+- Entities spawned/despawned by the server are automatically replicated to clients.
+- Properties are automatically replicated by the owner to other peers.
+- Use `SetPropertyOwner(string, int)` to change the owner of a property.
 - Created for use in a real [MMORPG](https://youtu.be/4ptBKI0cGhI).
 
 ## Dependencies
