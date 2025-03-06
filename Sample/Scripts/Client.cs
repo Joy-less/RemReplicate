@@ -1,6 +1,8 @@
 using Godot;
 using RemSend;
 
+namespace Sample;
+
 public partial class Client : Node {
     public static bool IsClient { get; } = !Server.IsServer;
 

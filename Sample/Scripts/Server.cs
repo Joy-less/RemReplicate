@@ -4,6 +4,8 @@ using Godot;
 using RemReplicate;
 using RemSend;
 
+namespace Sample;
+
 public partial class Server : Node {
     public static bool IsServer { get; } = OS.HasFeature("server");
 
@@ -14,11 +16,11 @@ public partial class Server : Node {
 
             // Start server
             StartServer();
-            
-            // Spawn cube after 1 second
+
+            // Spawn red cube after 1 second
             await Task.Delay(TimeSpan.FromSeconds(1));
-            Replicator.Main.SpawnEntity(new CubeRecord() {
-                Color = Colors.Red
+            Replicator.Singleton.SpawnEntity<CubeEntity>(CubeEntity.ScenePath, CubeEntity => {
+                CubeEntity.Color = Colors.Red;
             });
         }
     }

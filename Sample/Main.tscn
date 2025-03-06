@@ -1,9 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://dxv708rpi1oca"]
+[gd_scene load_steps=4 format=3 uid="uid://dxv708rpi1oca"]
 
 [ext_resource type="Script" uid="uid://dmvx4v1ddvw4m" path="res://Sample/Scripts/Client.cs" id="1_xf0c1"]
 [ext_resource type="Script" uid="uid://dfatfdxaxk6w4" path="res://Sample/Scripts/Server.cs" id="2_karfq"]
-[ext_resource type="Script" uid="uid://c1alk4jjpu3uw" path="res://addons/RemReplicate/Replicator.cs" id="3_2a8of"]
-[ext_resource type="PackedScene" uid="uid://cyk0154rxjd7t" path="res://Sample/Scenes/Entities/Cube.tscn" id="4_j055a"]
+[ext_resource type="Script" uid="uid://2asurmb7r4qi" path="res://addons/RemReplicate/Replicator.cs" id="3_2a8of"]
 
 [node name="Main" type="Node3D"]
 
@@ -18,4 +17,3 @@ script = ExtResource("2_karfq")
 
 [node name="Replicator" type="Node" parent="."]
 script = ExtResource("3_2a8of")
-ReplicatedScenes = [ExtResource("4_j055a")]

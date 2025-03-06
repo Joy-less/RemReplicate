@@ -1,21 +1,24 @@
 using Godot;
 using RemReplicate;
 
+namespace Sample;
+
 public partial class CubeEntity : Entity3D {
     [Export] public required MeshInstance3D Mesh { get; set; }
 
-    private CubeRecord _Record = new();
+    public const string ScenePath = "res://Sample/Scenes/Cube.tscn";
+    public const double Distance = 2;
+    public const double Speed = 1;
+
+    [RemoteProperty] public Color Color { get; set; }
 
     private double Counter = 0;
     private bool Direction = true;
 
-    private const double Distance = 2;
-    private const double Speed = 1;
-
     public override void _PhysicsProcess(double Delta) {
         base._PhysicsProcess(Delta);
 
-        if (IsPropertyOwner("Position")) {
+        if (IsPropertyOwner(nameof(RemotePosition))) {
             if (Direction) {
                 Counter += Delta * Speed;
 
@@ -36,19 +39,17 @@ public partial class CubeEntity : Entity3D {
             Position = new Vector3(0, (float)Counter, 0);
         }
 
-        if (IsPropertyOwner("Color")) {
+        if (IsPropertyOwner(nameof(Color))) {
             if (Counter == 0) {
-                Record.Color = Color.FromHsv(GD.Randf(), 0.5f, 0.5f);
+                Color = Color.FromHsv(GD.Randf(), 0.5f, 0.5f);
             }
         }
     }
-    public override void _Replicate(string PropertyName) {
-        if (PropertyName == "Color") {
-            ((StandardMaterial3D)Mesh.MaterialOverride).AlbedoColor = Record.Color;
+    public override void _PropertyReplicated(string PropertyName) {
+        if (PropertyName is nameof(Color)) {
+            ((StandardMaterial3D)Mesh.MaterialOverride).AlbedoColor = Color;
         }
     }
 
-    public override CubeRecord Record => _Record;
-    public override void SetRecord(Record Value) => _Record = (CubeRecord)Value;
     public override Node3D Node3D => Mesh;
 }

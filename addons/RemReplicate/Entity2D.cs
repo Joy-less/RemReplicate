@@ -1,7 +1,7 @@
 #nullable enable
 
 using Godot;
-using MemoryPack;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -104,24 +104,14 @@ public abstract partial class Entity2D : Entity {
     /// Immediately moves the entity to the given transform remotely without interpolating.
     /// </summary>
     public void Teleport(Vector2? Position = null, float? Rotation = null, Vector2? Scale = null) {
-        Rpc(MethodName.TeleportRpc, [
-            MemoryPackSerializer.Serialize(Position),
-            MemoryPackSerializer.Serialize(Rotation),
-            MemoryPackSerializer.Serialize(Scale),
-        ]);
+        BroadcastTeleportRem(Position, Rotation, Scale);
     }
 
     /// <summary>
     /// Immediately moves the entity to the given transform remotely without interpolating.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true)]
-    private void TeleportRpc(byte[] PositionPack, byte[] RotationPack, byte[] ScalePack) {
-        // Unpack arguments
-        int SenderId = Multiplayer.GetRemoteSenderId();
-        Vector2? Position = MemoryPackSerializer.Deserialize<Vector2?>(PositionPack);
-        float? Rotation = MemoryPackSerializer.Deserialize<float?>(RotationPack);
-        Vector2? Scale = MemoryPackSerializer.Deserialize<Vector2?>(ScalePack);
-
+    [Rem(RemAccess.Any, CallLocal = true)]
+    private void TeleportRem([Sender] int SenderId, Vector2? Position, float? Rotation, Vector2? Scale) {
         // Set properties to arguments if authorized
         if (Position is not null && IsPropertyOwner(nameof(RemotePosition), SenderId)) {
             this.Position = RemotePosition = Position.Value;

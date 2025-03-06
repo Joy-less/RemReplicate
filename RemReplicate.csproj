@@ -2,14 +2,17 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>RemReplicate</RootNamespace>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- IDE1006: Naming styles -->
+    <!-- IDE0200: Remove unnecessary lambda expression -->
+    <!-- IDE0350: Use implicitly typed lambda -->
+    <NoWarn>IDE1006;IDE0200;IDE0350</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Godot.SourceGenerators" Version="4.4.0" />
-    <PackageReference Include="GodotSharp" Version="4.4.0" />
-    <PackageReference Include="MemoryPack" Version="1.21.4" />
+    <PackageReference Include="RemSend" Version="7.8.0" />
   </ItemGroup>
 </Project>

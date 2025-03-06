@@ -1,11 +1,11 @@
 #nullable enable
-#pragma warning disable IDE1006 // Naming styles
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using MemoryPack;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -80,10 +80,7 @@ public abstract partial class Entity : Node {
     public void BroadcastChangedPropertyValues() {
         ForEachChangedPropertyValue((string PropertyName, byte[] PropertyValue) => {
             // Broadcast new property value
-            Rpc(MethodName.SetPropertyValueRpc, [
-                MemoryPackSerializer.Serialize(PropertyName),
-                MemoryPackSerializer.Serialize(PropertyValue),
-            ]);
+            BroadcastSetPropertyValueRem(PropertyName, PropertyValue);
         });
     }
     /// <summary>
@@ -124,10 +121,7 @@ public abstract partial class Entity : Node {
         // Set new property owner
         Property.Owner = PeerId;
         // Broadcast new property owner
-        Rpc(MethodName.SetPropertyOwnerRpc, [
-            MemoryPackSerializer.Serialize(PropertyName),
-            MemoryPackSerializer.Serialize(PeerId),
-        ]);
+        BroadcastSetPropertyOwnerRem(PropertyName, PeerId);
     }
     /// <summary>
     /// Returns the owners of each remote property.<br/>
@@ -233,12 +227,8 @@ public abstract partial class Entity : Node {
     /// <summary>
     /// Remotely sets the owner of the remote property.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.Authority)]
-    internal void SetPropertyOwnerRpc(byte[] PropertyNamePack, byte[] PropertyOwnerPack) {
-        // Unpack arguments
-        string PropertyName = MemoryPackSerializer.Deserialize<string>(PropertyNamePack)!;
-        int PropertyOwner = MemoryPackSerializer.Deserialize<int>(PropertyOwnerPack)!;
-
+    [Rem(RemAccess.Authority)]
+    internal void SetPropertyOwnerRem(string PropertyName, int PropertyOwner) {
         // Set property owner
         RemoteProperty Property = Properties[PropertyName];
         Property.Owner = PropertyOwner;
@@ -246,13 +236,8 @@ public abstract partial class Entity : Node {
     /// <summary>
     /// Remotely sets the value of the remote property.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-    private void SetPropertyValueRpc(byte[] PropertyNamePack, byte[] PropertyValuePack) {
-        // Unpack arguments
-        int SenderId = Multiplayer.GetRemoteSenderId();
-        string PropertyName = MemoryPackSerializer.Deserialize<string>(PropertyNamePack)!;
-        byte[] PropertyValue = MemoryPackSerializer.Deserialize<byte[]>(PropertyValuePack)!;
-
+    [Rem(RemAccess.Any)]
+    private void SetPropertyValueRem([Sender] int SenderId, string PropertyName, byte[] PropertyValue) {
         // Ensure sender owns property
         RemoteProperty Property = Properties[PropertyName];
         if (Property.Owner != SenderId) {

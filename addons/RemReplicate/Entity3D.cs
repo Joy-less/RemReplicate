@@ -1,7 +1,7 @@
 #nullable enable
 
 using Godot;
-using MemoryPack;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -103,25 +103,14 @@ public abstract partial class Entity3D : Entity {
     /// Immediately moves the entity to the given transform remotely without interpolating.
     /// </summary>
     public void Teleport(Vector3? Position = null, Vector3? Rotation = null, Vector3? Scale = null) {
-        // Replicate teleportation to prevent the entity appearing to interpolate to the new position
-        Rpc(MethodName.TeleportRpc, [
-            MemoryPackSerializer.Serialize(Position),
-            MemoryPackSerializer.Serialize(Rotation),
-            MemoryPackSerializer.Serialize(Scale),
-        ]);
+        BroadcastTeleportRem(Position, Rotation, Scale);
     }
 
     /// <summary>
     /// Immediately moves the entity to the given transform remotely without interpolating.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true)]
-    private void TeleportRpc(byte[] PositionPack, byte[] RotationPack, byte[] ScalePack) {
-        // Unpack arguments
-        int SenderId = Multiplayer.GetRemoteSenderId();
-        Vector3? Position = MemoryPackSerializer.Deserialize<Vector3?>(PositionPack);
-        Vector3? Rotation = MemoryPackSerializer.Deserialize<Vector3?>(RotationPack);
-        Vector3? Scale = MemoryPackSerializer.Deserialize<Vector3?>(ScalePack);
-
+    [Rem(RemAccess.Any, CallLocal = true)]
+    private void TeleportRem([Sender] int SenderId, Vector3? Position, Vector3? Rotation, Vector3? Scale) {
         // Set properties to arguments if authorized
         if (Position is not null && IsPropertyOwner(nameof(RemotePosition), SenderId)) {
             this.Position = RemotePosition = Position.Value;

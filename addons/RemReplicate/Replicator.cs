@@ -1,11 +1,11 @@
 #nullable enable
-#pragma warning disable CA1822
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Godot;
-using MemoryPack;
+using RemSend;
 
 namespace RemReplicate;
 
@@ -171,6 +171,9 @@ public partial class Replicator : Node {
     }
 
     private void Initialize() {
+        // Ensure RemSendService is initialized
+        RuntimeHelpers.RunClassConstructor(typeof(RemSendService).TypeHandle);
+
         // Server: On entity added, replicate spawn entity
         ChildEnteredTree += (Node Child) => {
             // Ensure child is an entity
@@ -182,12 +185,7 @@ public partial class Replicator : Node {
                 return;
             }
             // Broadcast spawn
-            Rpc(MethodName.SpawnEntityRpc, [
-                MemoryPackSerializer.Serialize(Entity.Id),
-                MemoryPackSerializer.Serialize(Entity.SceneFilePath),
-                MemoryPackSerializer.Serialize(Entity.GetPropertyValues()),
-                MemoryPackSerializer.Serialize(Entity.GetPropertyOwners(ExcludeDefault: true)),
-            ]);
+            BroadcastSpawnEntityRem(Entity.Id, Entity.SceneFilePath, Entity.GetPropertyValues(), Entity.GetPropertyOwners());
         };
 
         // Server: On entity removed, replicate despawn entity
@@ -201,9 +199,7 @@ public partial class Replicator : Node {
                 return;
             }
             // Broadcast despawn
-            Rpc(MethodName.DespawnEntityRpc, [
-                MemoryPackSerializer.Serialize(Entity.Id),
-            ]);
+            BroadcastDespawnEntityRem(Entity.Id);
         };
 
         // Server: On client connect, replicate spawn all entities
@@ -215,12 +211,7 @@ public partial class Replicator : Node {
             // Replicate all entities to peer
             foreach (Entity Entity in GetEntities()) {
                 // Replicate entity
-                RpcId((int)PeerId, MethodName.SpawnEntityRpc, [
-                    MemoryPackSerializer.Serialize(Entity.Id),
-                    MemoryPackSerializer.Serialize(Entity.SceneFilePath),
-                    MemoryPackSerializer.Serialize(Entity.GetPropertyValues()),
-                    MemoryPackSerializer.Serialize(Entity.GetPropertyOwners()),
-                ]);
+                SendSpawnEntityRem((int)PeerId, Entity.Id, Entity.SceneFilePath, Entity.GetPropertyValues(), Entity.GetPropertyOwners());
             }
         };
     }
@@ -228,14 +219,8 @@ public partial class Replicator : Node {
     /// <summary>
     /// Remotely spawns the given entity.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.Authority)]
-    private void SpawnEntityRpc(byte[] EntityIdPack, byte[] ScenePathPack, byte[] PropertyValuesPack, byte[] PropertyOwnersPack) {
-        // Unpack arguments
-        Guid EntityId = MemoryPackSerializer.Deserialize<Guid>(EntityIdPack)!;
-        string ScenePath = MemoryPackSerializer.Deserialize<string>(ScenePathPack)!;
-        Dictionary<string, byte[]> PropertyValues = MemoryPackSerializer.Deserialize<Dictionary<string, byte[]>>(PropertyValuesPack)!;
-        Dictionary<string, int> PropertyOwners = MemoryPackSerializer.Deserialize<Dictionary<string, int>>(PropertyOwnersPack)!;
-
+    [Rem(RemAccess.Authority)]
+    private void SpawnEntityRem(Guid EntityId, string ScenePath, Dictionary<string, byte[]> PropertyValues, Dictionary<string, int> PropertyOwners) {
         // Spawn entity
         SpawnEntity(ScenePath, (Entity Entity) => {
             // Set entity ID
@@ -251,11 +236,8 @@ public partial class Replicator : Node {
     /// <summary>
     /// Remotely despawns the given entity.
     /// </summary>
-    [Rpc(MultiplayerApi.RpcMode.Authority)]
-    private void DespawnEntityRpc(byte[] EntityIdPack) {
-        // Unpack arguments
-        Guid EntityId = MemoryPackSerializer.Deserialize<Guid>(EntityIdPack)!;
-
+    [Rem(RemAccess.Authority)]
+    private void DespawnEntityRem(Guid EntityId) {
         // Despawn entity by ID
         DespawnEntity(EntityId);
     }
