@@ -1,214 +1,262 @@
 #nullable enable
+#pragma warning disable CA1822
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Godot;
-using RemSend;
+using MemoryPack;
 
 namespace RemReplicate;
 
+/// <summary>
+/// A node that replicates its child <see cref="Entity"/>'s.<br/>
+/// The authority remotely spawns and despawns entities, and every peer remotely changes the properties it owns.
+/// </summary>
 [GlobalClass]
 public partial class Replicator : Node {
+    /// <summary>
+    /// The number of times per second to check and broadcast changed properties.
+    /// </summary>
     [Export] public double ReplicateHz { get; set; } = 20;
-    [Export] public PackedScene[] ReplicatedScenes { get; set; } = [];
 
-    [Signal] public delegate void SpawnEventHandler(Entity Entity);
-    [Signal] public delegate void DespawnEventHandler(Entity Entity);
-
+    /// <summary>
+    /// A reference to a single instance of <see cref="Replicator"/>, useful if you only have one.
+    /// </summary>
     public static Replicator Singleton { get; private set; } = null!;
 
-    private readonly Dictionary<string, PackedScene> Scenes = []; // { entity type, template scene }
-    private readonly Dictionary<string, Node> Folders = []; // { entity type, parent node }
-
+    /// <summary>
+    /// Constructs a replicator.
+    /// </summary>
     public Replicator() {
         // Set as singleton
         Singleton = this;
     }
+    /// <summary>
+    /// Initializes the replicator.
+    /// </summary>
     public override void _Ready() {
         // Initialize replicator once
         Initialize();
     }
-    public override void _Process(double Delta) {
-        // Locally destroy all entities when disconnected
-        if (!Multiplayer.HasMultiplayerPeer() || Multiplayer.MultiplayerPeer.GetConnectionStatus() is not MultiplayerPeer.ConnectionStatus.Disconnected) {
-            DespawnEntities();
-        }
+    /// <inheritdoc cref="SpawnEntity{TEntity}(TEntity)"/>
+    public Entity SpawnEntity(Entity Entity) {
+        return SpawnEntity<Entity>(Entity);
     }
-    public Entity SpawnEntity(Record Record) {
-        // Get entity type from record
-        string EntityType = GetEntityTypeFromTypeOfRecord(Record.GetType());
-        // Create entity from record
-        Entity Entity = Scenes[EntityType].Instantiate<Entity>();
-        Entity.Name = Record.Id.ToString();
-        Entity.SetRecord(Record);
-        // Add entity to folder
-        Folders[EntityType].AddChild(Entity);
-        // Invoke event
-        EmitSignalSpawn(Entity);
+    /// <summary>
+    /// Adds an entity to the replicator.
+    /// </summary>
+    public TEntity SpawnEntity<TEntity>(TEntity Entity) where TEntity : Entity {
+        // Set entity name to ID
+        Entity.Name = Entity.Id.ToString();
+        // Add entity
+        AddChild(Entity);
         return Entity;
     }
-    public Entity SpawnEntity(string Type, Guid Id, Dictionary<string, byte[]> Properties) {
-        // Create entity from scene
-        Entity Entity = Scenes[Type].Instantiate<Entity>();
-        Entity.Name = Id.ToString();
-        Entity.SetProperties(Properties);
-        // Add entity to folder
-        Folders[Type].AddChild(Entity);
-        // Invoke event
-        EmitSignalSpawn(Entity);
-        return Entity;
+    /// <inheritdoc cref="SpawnEntity{TEntity}(string, Action{TEntity}?)"/>
+    public Entity SpawnEntity(string ScenePath, Action<Entity>? Setup = null) {
+        return SpawnEntity<Entity>(ScenePath, Setup);
     }
-    public bool DespawnEntity(string Type, Guid Id) {
-        // Find and destroy entity
-        if (GetEntity(Type, Id) is Entity Entity) {
-            Entity.QueueFree();
-            // Invoke event
-            EmitSignalDespawn(Entity);
-            return true;
+    /// <summary>
+    /// Instantiates an entity from <paramref name="ScenePath"/> and adds it to the replicator.
+    /// </summary>
+    public TEntity SpawnEntity<TEntity>(string ScenePath, Action<TEntity>? Setup = null) where TEntity : Entity {
+        // Instantiate entity from scene
+        TEntity Entity = GD.Load<PackedScene>(ScenePath).Instantiate<TEntity>();
+        // Setup entity
+        Setup?.Invoke(Entity);
+        // Spawn entity
+        return SpawnEntity(Entity);
+    }
+    /// <summary>
+    /// Removes an entity from the replicator.
+    /// </summary>
+    public void DespawnEntity(Entity Entity) {
+        // Remove entity
+        Entity.QueueFree();
+    }
+    /// <summary>
+    /// Removes an entity with the given ID from the replicator.
+    /// </summary>
+    public bool DespawnEntity(Guid Id) {
+        // Find entity
+        if (GetEntity(Id) is not Entity Entity) {
+            return false;
         }
-        return false;
+        // Despawn entity
+        DespawnEntity(Entity);
+        return true;
     }
-    public bool DespawnEntity(EntityRef Ref) {
-        return DespawnEntity(Ref.Class, Ref.Id);
-    }
-    public bool DespawnEntity<TEntity>(Guid Id) where TEntity : Entity {
-        return DespawnEntity(GetEntityTypeFromTypeOfEntity<TEntity>(), Id);
-    }
+    /// <summary>
+    /// Removes every entity from the replicator.
+    /// </summary>
     public void DespawnEntities() {
         foreach (Entity Entity in GetEntities()) {
-            DespawnEntity(Entity.Ref);
+            DespawnEntity(Entity);
         }
     }
-    public Entity GetEntity(string Type, Guid Id) {
+    /// <summary>
+    /// Finds an entity with the given ID in the replicator.
+    /// </summary>
+    public Entity GetEntity(Guid Id) {
         // Find entity by ID
-        return Folders[Type].GetNode<Entity>(Id.ToString());
+        return GetNode<Entity>(Id.ToString());
     }
-    public Entity GetEntity(EntityRef Ref) {
-        return GetEntity(Ref.Class, Ref.Id);
-    }
+    /// <inheritdoc cref="GetEntity(Guid)"/>
     public TEntity GetEntity<TEntity>(Guid Id) where TEntity : Entity {
-        return (TEntity)GetEntity(GetEntityTypeFromTypeOfEntity<TEntity>(), Id);
+        return (TEntity)GetEntity(Id);
     }
-    public Entity? GetEntityOrNull(string? Type, Guid? Id) {
+    /// <summary>
+    /// Tries to find an entity with the given ID in the replicator.
+    /// </summary>
+    public Entity? GetEntityOrNull(Guid? Id) {
         // Ensure ID is not null
-        if (Type is null || Id is null) {
+        if (Id is null) {
             return null;
         }
         // Find entity by ID
-        return Folders[Type].GetNodeOrNull<Entity>(Id.Value.ToString());
+        return GetNodeOrNull<Entity>(Id.Value.ToString());
     }
-    public Entity? GetEntityOrNull(EntityRef? Ref) {
-        return GetEntityOrNull(Ref?.Class, Ref?.Id);
-    }
+    /// <inheritdoc cref="GetEntityOrNull(Guid?)"/>
     public TEntity? GetEntityOrNull<TEntity>(Guid? Id) where TEntity : Entity {
-        return (TEntity?)GetEntityOrNull(GetEntityTypeFromTypeOfEntity<TEntity>(), Id);
+        return GetEntityOrNull(Id) as TEntity;
     }
+    /// <summary>
+    /// Finds every entity in the replicator.
+    /// </summary>
     public IEnumerable<Entity> GetEntities() {
-        return Folders.Values.SelectMany(Folder => Folder.GetChildren().OfType<Entity>());
+        return GetChildren().OfType<Entity>();
     }
+    /// <inheritdoc cref="GetEntities()"/>
     public IEnumerable<TEntity> GetEntities<TEntity>() where TEntity : Entity {
         return GetEntities().OfType<TEntity>();
     }
+    /// <summary>
+    /// Returns the entities in the replicator nearest to the position.
+    /// </summary>
     public IEnumerable<TEntity> GetNearestEntities<TEntity>(Vector3 Position, double MaxDistance = double.PositiveInfinity) where TEntity : Entity3D {
         return GetEntities<TEntity>()
             .Where(Entity => Entity.DistanceTo(Position) <= MaxDistance)
             .OrderBy(Entity => Entity.DistanceTo(Position));
     }
-
-    public static string GetEntityTypeFromTypeOfEntity(Type EntityType) {
-        return EntityType.Name.TrimSuffix("Entity");
+    /// <summary>
+    /// Returns the entities in the replicator nearest to the position.
+    /// </summary>
+    public IEnumerable<TEntity> GetNearestEntities<TEntity>(Vector2 Position, double MaxDistance = double.PositiveInfinity) where TEntity : Entity2D {
+        return GetEntities<TEntity>()
+            .Where(Entity => Entity.DistanceTo(Position) <= MaxDistance)
+            .OrderBy(Entity => Entity.DistanceTo(Position));
     }
-    public static string GetEntityTypeFromTypeOfRecord(Type RecordType) {
-        return RecordType.Name.TrimSuffix("Record");
+    /// <summary>
+    /// Returns the unique ID of the local peer.
+    /// </summary>
+    public int GetMultiplayerId() {
+        return Multiplayer.GetUniqueId();
     }
-    public static string GetEntityTypeFromTypeOfEntity<T>() where T : Entity {
-        return GetEntityTypeFromTypeOfEntity(typeof(T));
+    /// <summary>
+    /// Returns the unique ID of the local peer if active.
+    /// </summary>
+    public int? GetMultiplayerIdOrNull() {
+        // Ensure multiplayer is active
+        if (!IsInstanceValid(Multiplayer.MultiplayerPeer)) {
+            return null;
+        }
+        return GetMultiplayerId();
     }
-    public static string GetEntityTypeFromTypeOfRecord<T>() where T : Record {
-        return GetEntityTypeFromTypeOfRecord(typeof(T));
-    }
-    public static string GetEntityTypeFromScene(PackedScene Scene) {
-        return Scene.ResourcePath.GetFile().GetBaseName();
-    }
-
-    [Rem(RemAccess.Authority)]
-    protected void SpawnRem(string EntityType, Guid EntityId, Dictionary<string, byte[]> Properties) {
-        SpawnEntity(EntityType, EntityId, Properties);
-    }
-    [Rem(RemAccess.Authority)]
-    protected void DespawnRem(string EntityType, Guid EntityId) {
-        DespawnEntity(EntityType, EntityId);
+    /// <summary>
+    /// Returns whether the local peer has the given ID.
+    /// </summary>
+    public bool IsMultiplayerId(int PeerId) {
+        return GetMultiplayerIdOrNull() == PeerId;
     }
 
     private void Initialize() {
-        // Ensure RemSendService is initialized
-        RuntimeHelpers.RunClassConstructor(typeof(RemSendService).TypeHandle);
+        // Server: On entity added, replicate spawn entity
+        ChildEnteredTree += (Node Child) => {
+            // Ensure child is an entity
+            if (Child is not Entity Entity) {
+                return;
+            }
+            // Ensure this is the server
+            if (!IsMultiplayerId(1)) {
+                return;
+            }
+            // Broadcast spawn
+            Rpc(MethodName.SpawnEntityRpc, [
+                MemoryPackSerializer.Serialize(Entity.Id),
+                MemoryPackSerializer.Serialize(Entity.SceneFilePath),
+                MemoryPackSerializer.Serialize(Entity.GetPropertyValues()),
+                MemoryPackSerializer.Serialize(Entity.GetPropertyOwners(ExcludeDefault: true)),
+            ]);
+        };
 
-        // Setup each scene for replication
-        foreach (PackedScene Scene in ReplicatedScenes) {
-            // Get entity type from scene
-            string EntityType = GetEntityTypeFromScene(Scene);
-
-            // Create folder for entity type
-            Node Folder = new() {
-                Name = EntityType
-            };
-            AddChild(Folder);
-
-            // Server: On entity added, replicate spawn entity
-            Folder.ChildEnteredTree += (Node Child) => {
-                if (Child is Entity Entity) {
-                    _EntityAdded(Entity, EntityType);
-                }
-            };
-            // Server: On entity removed, replicate despawn entity
-            Folder.ChildExitingTree += (Node Child) => {
-                if (Child is Entity Entity) {
-                    _EntityRemoved(Entity, EntityType);
-                }
-            };
-
-            // Add entity type to lookup tables
-            Scenes[EntityType] = Scene;
-            Folders[EntityType] = Folder;
-        }
+        // Server: On entity removed, replicate despawn entity
+        ChildExitingTree += (Node Child) => {
+            // Ensure child is an entity
+            if (Child is not Entity Entity) {
+                return;
+            }
+            // Ensure this is the server
+            if (!IsMultiplayerId(1)) {
+                return;
+            }
+            // Broadcast despawn
+            Rpc(MethodName.DespawnEntityRpc, [
+                MemoryPackSerializer.Serialize(Entity.Id),
+            ]);
+        };
 
         // Server: On client connect, replicate spawn all entities
         Multiplayer.PeerConnected += (long PeerId) => {
-            _PeerAdded((int)PeerId);
+            // Ensure this is the server
+            if (!IsMultiplayerId(1)) {
+                return;
+            }
+            // Replicate all entities to peer
+            foreach (Entity Entity in GetEntities()) {
+                // Replicate entity
+                RpcId((int)PeerId, MethodName.SpawnEntityRpc, [
+                    MemoryPackSerializer.Serialize(Entity.Id),
+                    MemoryPackSerializer.Serialize(Entity.SceneFilePath),
+                    MemoryPackSerializer.Serialize(Entity.GetPropertyValues()),
+                    MemoryPackSerializer.Serialize(Entity.GetPropertyOwners()),
+                ]);
+            }
         };
     }
-    private void _EntityAdded(Entity Entity, string EntityType) {
-        // Ensure this is the server
-        if (!IsMultiplayerAuthority()) {
-            return;
-        }
-        // Replicate entity spawn
-        BroadcastSpawnRem(EntityType, Entity.Record.Id, Entity.GetChangedProperties());
-    }
-    private void _EntityRemoved(Entity Entity, string EntityType) {
-        // Ensure this is the server
-        if (!IsMultiplayerAuthority()) {
-            return;
-        }
-        // Replicate entity despawn
-        BroadcastDespawnRem(EntityType, Entity.Record.Id);
-    }
-    private void _PeerAdded(int PeerId) {
-        // Ensure this is the server
-        if (!IsMultiplayerAuthority()) {
-            return;
-        }
-        // Replicate all entities to peer
-        foreach (Entity Entity in GetEntities()) {
-            // Replicate entity
-            SendSpawnRem(PeerId, Entity.GetEntityType(), Entity.Record.Id, Entity.GetProperties());
-            // Replicate property owners
-            foreach (Property Property in Entity.Properties.Values) {
-                Entity.SendSetPropertyOwnerRem(PeerId, Property.Name, Property.Owner);
+
+    /// <summary>
+    /// Remotely spawns the given entity.
+    /// </summary>
+    [Rpc(MultiplayerApi.RpcMode.Authority)]
+    private void SpawnEntityRpc(byte[] EntityIdPack, byte[] ScenePathPack, byte[] PropertyValuesPack, byte[] PropertyOwnersPack) {
+        // Unpack arguments
+        Guid EntityId = MemoryPackSerializer.Deserialize<Guid>(EntityIdPack)!;
+        string ScenePath = MemoryPackSerializer.Deserialize<string>(ScenePathPack)!;
+        Dictionary<string, byte[]> PropertyValues = MemoryPackSerializer.Deserialize<Dictionary<string, byte[]>>(PropertyValuesPack)!;
+        Dictionary<string, int> PropertyOwners = MemoryPackSerializer.Deserialize<Dictionary<string, int>>(PropertyOwnersPack)!;
+
+        // Spawn entity
+        SpawnEntity(ScenePath, (Entity Entity) => {
+            // Set entity ID
+            Entity.Id = EntityId;
+            // Set entity property values
+            Entity.SetPropertyValues(PropertyValues);
+            // Set entity property owners
+            foreach ((string PropertyName, int PropertyOwner) in PropertyOwners) {
+                Entity.GetProperty(PropertyName).Owner = PropertyOwner;
             }
-        }
+        });
+    }
+    /// <summary>
+    /// Remotely despawns the given entity.
+    /// </summary>
+    [Rpc(MultiplayerApi.RpcMode.Authority)]
+    private void DespawnEntityRpc(byte[] EntityIdPack) {
+        // Unpack arguments
+        Guid EntityId = MemoryPackSerializer.Deserialize<Guid>(EntityIdPack)!;
+
+        // Despawn entity by ID
+        DespawnEntity(EntityId);
     }
 }

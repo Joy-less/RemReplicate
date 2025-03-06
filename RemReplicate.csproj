@@ -1,12 +1,15 @@
-<Project Sdk="Godot.NET.Sdk/4.4.0-beta.4">
+<Project Sdk="Godot.NET.Sdk/4.4.0">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <RootNamespace>RemReplicate</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
   <ItemGroup>
+    <PackageReference Include="Godot.SourceGenerators" Version="4.4.0" />
+    <PackageReference Include="GodotSharp" Version="4.4.0" />
     <PackageReference Include="MemoryPack" Version="1.21.4" />
-    <PackageReference Include="RemSend" Version="7.7.0" />
   </ItemGroup>
 </Project>

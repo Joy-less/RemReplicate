@@ -6,9 +6,9 @@ using MemoryPack;
 namespace RemReplicate;
 
 /// <summary>
-/// A node that is spawned and updated remotely by a <see cref="Replicator"/> with a 3D transform.
+/// A node that is spawned and updated remotely by a <see cref="Replicator"/> with a 2D transform.
 /// </summary>
-public abstract partial class Entity3D : Entity {
+public abstract partial class Entity2D : Entity {
     /// <summary>
     /// The weight for interpolating to the remote position.
     /// </summary>
@@ -25,27 +25,27 @@ public abstract partial class Entity3D : Entity {
     /// <summary>
     /// The position remotely sent or received.
     /// </summary>
-    [RemoteProperty] public Vector3 RemotePosition { get; set; } = Vector3.Zero;
+    [RemoteProperty] public Vector2 RemotePosition { get; set; } = Vector2.Zero;
     /// <summary>
     /// The rotation remotely sent or received.
     /// </summary>
-    [RemoteProperty] public Vector3 RemoteRotation { get; set; } = Vector3.Zero;
+    [RemoteProperty] public float RemoteRotation { get; set; } = 0;
     /// <summary>
     /// The scale remotely sent or received.
     /// </summary>
-    [RemoteProperty] public Vector3 RemoteScale { get; set; } = Vector3.One;
+    [RemoteProperty] public Vector2 RemoteScale { get; set; } = Vector2.One;
 
     /// <summary>
-    /// The 3D node.
+    /// The 2D node.
     /// </summary>
-    public abstract Node3D Node3D { get; }
+    public abstract Node2D Node2D { get; }
 
-    /// <inheritdoc cref="Node3D.Position"/>
-    public Vector3 Position { get => Node3D.Position; set => Node3D.Position = value; }
-    /// <inheritdoc cref="Node3D.Rotation"/>
-    public Vector3 Rotation { get => Node3D.Rotation; set => Node3D.Rotation = value; }
-    /// <inheritdoc cref="Node3D.Scale"/>
-    public Vector3 Scale { get => Node3D.Scale; set => Node3D.Scale = value; }
+    /// <inheritdoc cref="Node2D.Position"/>
+    public Vector2 Position { get => Node2D.Position; set => Node2D.Position = value; }
+    /// <inheritdoc cref="Node2D.Rotation"/>
+    public float Rotation { get => Node2D.Rotation; set => Node2D.Rotation = value; }
+    /// <inheritdoc cref="Node2D.Scale"/>
+    public Vector2 Scale { get => Node2D.Scale; set => Node2D.Scale = value; }
 
     /// <inheritdoc/>
     public override void _Ready() {
@@ -75,7 +75,8 @@ public abstract partial class Entity3D : Entity {
         }
         // Interpolate to rotation
         else {
-            Rotation = Rotation.Lerp(RemoteRotation, RotationWeight);
+            
+            Rotation = Mathf.Lerp(Rotation, RemoteRotation, RotationWeight);
         }
 
         // Replicate scale
@@ -90,20 +91,19 @@ public abstract partial class Entity3D : Entity {
     /// <summary>
     /// Returns the distance from the entity to <paramref name="OtherPosition"/>.
     /// </summary>
-    public float DistanceTo(Vector3 OtherPosition) {
+    public float DistanceTo(Vector2 OtherPosition) {
         return Position.DistanceTo(OtherPosition);
     }
     /// <summary>
     /// Returns the distance from the entity to <paramref name="OtherEntity"/>.
     /// </summary>
-    public float DistanceTo(Entity3D OtherEntity) {
+    public float DistanceTo(Entity2D OtherEntity) {
         return DistanceTo(OtherEntity.Position);
     }
     /// <summary>
     /// Immediately moves the entity to the given transform remotely without interpolating.
     /// </summary>
-    public void Teleport(Vector3? Position = null, Vector3? Rotation = null, Vector3? Scale = null) {
-        // Replicate teleportation to prevent the entity appearing to interpolate to the new position
+    public void Teleport(Vector2? Position = null, float? Rotation = null, Vector2? Scale = null) {
         Rpc(MethodName.TeleportRpc, [
             MemoryPackSerializer.Serialize(Position),
             MemoryPackSerializer.Serialize(Rotation),
@@ -118,9 +118,9 @@ public abstract partial class Entity3D : Entity {
     private void TeleportRpc(byte[] PositionPack, byte[] RotationPack, byte[] ScalePack) {
         // Unpack arguments
         int SenderId = Multiplayer.GetRemoteSenderId();
-        Vector3? Position = MemoryPackSerializer.Deserialize<Vector3?>(PositionPack);
-        Vector3? Rotation = MemoryPackSerializer.Deserialize<Vector3?>(RotationPack);
-        Vector3? Scale = MemoryPackSerializer.Deserialize<Vector3?>(ScalePack);
+        Vector2? Position = MemoryPackSerializer.Deserialize<Vector2?>(PositionPack);
+        float? Rotation = MemoryPackSerializer.Deserialize<float?>(RotationPack);
+        Vector2? Scale = MemoryPackSerializer.Deserialize<Vector2?>(ScalePack);
 
         // Set properties to arguments if authorized
         if (Position is not null && IsPropertyOwner(nameof(RemotePosition), SenderId)) {

@@ -1,39 +1,69 @@
 #nullable enable
+#pragma warning disable IDE1006 // Naming styles
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using MemoryPack;
-using RemSend;
 
 namespace RemReplicate;
 
+/// <summary>
+/// A node that is spawned and updated remotely by a <see cref="Replicator"/>.
+/// </summary>
 public abstract partial class Entity : Node {
-    [Signal] public delegate void ReplicateEventHandler(string PropertyName);
+    /// <summary>
+    /// Emitted when a property is set by the remote owner.
+    /// </summary>
+    [Signal] public delegate void PropertyReplicatedEventHandler(string PropertyName);
 
-    public abstract Record Record { get; }
-    public abstract void SetRecord(Record Value);
-    public EntityRef Ref => CachedRef ??= new EntityRef(GetEntityType(), Record.Id);
+    /// <summary>
+    /// The unique ID for the entity.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    internal Dictionary<string, Property> Properties => CachedProperties ??= Property.GetProperties(Record);
+    private readonly Dictionary<string, RemoteProperty> Properties;
+    private readonly Dictionary<string, byte[]> PreviousPropertyValues = [];
+    private double TimeUntilReplicateProperties = 0;
 
-    private readonly Dictionary<string, byte[]> PreviousProperties = [];
-    private Dictionary<string, Property>? CachedProperties;
-    private EntityRef? CachedRef;
-    private double TimeUntilReplicate;
+    /// <summary>
+    /// Constructs an entity.
+    /// </summary>
+    public Entity() {
+        // Get initial remote properties
+        Properties = RemoteProperty.GetProperties(this);
 
-    public virtual void _Replicate(string PropertyName) {
+        // Hook virtual methods to events
+        PropertyReplicated += _PropertyReplicated;
     }
-
+    /// <summary>
+    /// Called when ready to initialize the entity.
+    /// </summary>
+    public override void _Ready() {
+    }
+    /// <summary>
+    /// Called every frame to update the entity.
+    /// <list type="bullet">
+    ///   <item>Changed property values are broadcasted.</item>
+    /// </list>
+    /// </summary>
     public override void _Process(double Delta) {
-        // Replicate every interval
-        TimeUntilReplicate -= Delta;
-        if (TimeUntilReplicate <= 0) {
-            TimeUntilReplicate = 1.0 / GetReplicator().ReplicateHz;
-            ReplicateChangedProperties();
+        // Replicate properties every interval
+        TimeUntilReplicateProperties -= Delta;
+        if (TimeUntilReplicateProperties <= 0) {
+            TimeUntilReplicateProperties = 1.0 / GetReplicator().ReplicateHz;
+            BroadcastChangedPropertyValues();
         }
     }
+    /// <summary>
+    /// Called every physics frame to update the entity.
+    /// </summary>
+    public override void _PhysicsProcess(double Delta) {
+    }
+    /// <summary>
+    /// Returns the replicator controlling this entity (this entity's parent).
+    /// </summary>
     public Replicator GetReplicator() {
         Node? CurrentNode = this;
         while (CurrentNode is not null) {
@@ -44,69 +74,119 @@ public abstract partial class Entity : Node {
         }
         return null!;
     }
-    public string GetEntityType() {
-        return Replicator.GetEntityTypeFromTypeOfEntity(GetType());
+    /// <summary>
+    /// Immediately broadcasts any changed remote property values owned by the local peer.
+    /// </summary>
+    public void BroadcastChangedPropertyValues() {
+        ForEachChangedPropertyValue((string PropertyName, byte[] PropertyValue) => {
+            // Broadcast new property value
+            Rpc(MethodName.SetPropertyValueRpc, [
+                MemoryPackSerializer.Serialize(PropertyName),
+                MemoryPackSerializer.Serialize(PropertyValue),
+            ]);
+        });
     }
-    public void ReplicateChangedProperties() {
-        ForEachChangedProperty(BroadcastSetPropertyRem);
-    }
+    /// <summary>
+    /// Returns the peer ID that owns the remote property.
+    /// </summary>
     public int GetPropertyOwner(string PropertyName) {
         // Get property by name
-        Property Property = Properties[PropertyName];
+        RemoteProperty Property = Properties[PropertyName];
         // Return property network owner peer ID
         return Property.Owner;
     }
+    /// <summary>
+    /// Returns whether <paramref name="PeerId"/> owns the remote property.
+    /// </summary>
     public bool IsPropertyOwner(string PropertyName, int PeerId) {
         // Check if the given peer owns the property
         return GetPropertyOwner(PropertyName) == PeerId;
     }
+    /// <summary>
+    /// Returns whether the local peer owns the remote property.
+    /// </summary>
     public bool IsPropertyOwner(string PropertyName) {
         // Check if the local peer owns the property
         return IsPropertyOwner(PropertyName, GetReplicator().Multiplayer.GetUniqueId());
     }
+    /// <summary>
+    /// Changes the owner of the remote property, broadcasting the new owner.
+    /// </summary>
+    /// <remarks>
+    /// This can only be called by the multiplayer authority.
+    /// </remarks>
     public void SetPropertyOwner(string PropertyName, int PeerId) {
         // Get property by name
-        Property Property = Properties[PropertyName];
+        RemoteProperty Property = Properties[PropertyName];
         if (Property.Owner == PeerId) {
             return;
         }
-        BroadcastSetPropertyOwnerRem(PropertyName, PeerId);
+        // Set new property owner
+        Property.Owner = PeerId;
+        // Broadcast new property owner
+        Rpc(MethodName.SetPropertyOwnerRpc, [
+            MemoryPackSerializer.Serialize(PropertyName),
+            MemoryPackSerializer.Serialize(PeerId),
+        ]);
     }
-    public Dictionary<string, byte[]> GetProperties() {
-        Dictionary<string, byte[]> All = [];
-        // Check each property
-        foreach ((string Name, Property Property) in Properties) {
-            // Get and serialise property value
-            byte[] Value = MemoryPackSerializer.Serialize(Property.Type, Property.Get());
-            // Add property to delta
-            All[Name] = Value;
+    /// <summary>
+    /// Returns the owners of each remote property.<br/>
+    /// If <paramref name="ExcludeDefault"/> is <see langword="true"/>, properties owned by the authority (the default owner) are excluded.
+    /// </summary>
+    public Dictionary<string, int> GetPropertyOwners(bool ExcludeDefault = true) {
+        Dictionary<string, int> PropertyOwners = [];
+        // Add each property owner
+        foreach ((string Name, RemoteProperty Property) in Properties) {
+            // Skip properties owned by the authority (the default owner)
+            if (ExcludeDefault && Property.Owner is 1) {
+                continue;
+            }
+            PropertyOwners[Name] = Property.Owner;
         }
-        return All;
+        return PropertyOwners;
     }
-    public void SetProperty(string Name, byte[] Value) {
+    /// <summary>
+    /// Returns the values of each remote property.
+    /// </summary>
+    public Dictionary<string, byte[]> GetPropertyValues() {
+        Dictionary<string, byte[]> PropertyValues = [];
+        // Add each property value
+        foreach ((string Name, RemoteProperty Property) in Properties) {
+            PropertyValues[Name] = MemoryPackSerializer.Serialize(Property.Type, Property.Get());
+        }
+        return PropertyValues;
+    }
+    /// <summary>
+    /// Sets the (serialized) value of the remote property.
+    /// </summary>
+    public void SetPropertyValue(string Name, byte[] Value) {
         // Deserialise and set property
-        Property Property = Properties[Name];
+        RemoteProperty Property = Properties[Name];
         Property.Set(MemoryPackSerializer.Deserialize(Property.Type, Value));
-        // Invoke replicated event for each property
-        EmitSignalReplicate(Name);
-        _Replicate(Name);
+        // Invoke replicated event for property
+        EmitSignalPropertyReplicated(Name);
     }
-    public void SetProperties(IDictionary<string, byte[]> Entries) {
+    /// <summary>
+    /// Sets the (serialized) values of the remote properties.
+    /// </summary>
+    public void SetPropertyValues(IDictionary<string, byte[]> Entries) {
         // Set each property
         foreach ((string Name, byte[] Value) in Entries) {
             // Deserialise and set property
-            Property Property = Properties[Name];
+            RemoteProperty Property = Properties[Name];
             Property.Set(MemoryPackSerializer.Deserialize(Property.Type, Value));
         }
         // Invoke replicated event for each property
         foreach (string Name in Entries.Keys) {
-            EmitSignalReplicate(Name);
-            _Replicate(Name);
+            EmitSignalPropertyReplicated(Name);
         }
     }
-    public void ForEachChangedProperty(Action<string, byte[]> Callback) {
+    /// <summary>
+    /// Invokes <paramref name="Callback"/> for each property value changed since the last broadcast.
+    /// </summary>
+    public void ForEachChangedPropertyValue(Action<string, byte[]> Callback) {
         // Check each property
-        foreach ((string PropertyName, Property Property) in Properties) {
+        foreach ((string PropertyName, RemoteProperty Property) in Properties) {
             // Ensure local peer is property owner
             if (!IsPropertyOwner(PropertyName)) {
                 continue;
@@ -114,40 +194,72 @@ public abstract partial class Entity : Node {
             // Get and serialise property value
             byte[] Value = MemoryPackSerializer.Serialize(Property.Type, Property.Get());
             // Ensure property changed
-            if (PreviousProperties.TryGetValue(PropertyName, out byte[]? PreviousValue) && PreviousValue.SequenceEqual(Value)) {
+            if (PreviousPropertyValues.TryGetValue(PropertyName, out byte[]? PreviousValue) && PreviousValue.SequenceEqual(Value)) {
                 continue;
             }
             // Store new property value
-            PreviousProperties[PropertyName] = Value;
+            PreviousPropertyValues[PropertyName] = Value;
             // Report property as changed
             Callback(PropertyName, Value);
         }
     }
-    public Dictionary<string, byte[]> GetChangedProperties() {
+    /// <summary>
+    /// Returns each property value changed since the last broadcast.
+    /// </summary>
+    public Dictionary<string, byte[]> GetChangedPropertyValues() {
         Dictionary<string, byte[]> ChangedProperties = [];
-        ForEachChangedProperty((string Name, byte[] Value) => {
+        ForEachChangedPropertyValue((string Name, byte[] Value) => {
             ChangedProperties[Name] = Value;
         });
         return ChangedProperties;
     }
-
-    [Rem(RemAccess.Authority, CallLocal = true)]
-    internal void SetPropertyOwnerRem(string PropertyName, int Owner) {
-        Property Property = Properties[PropertyName];
-        Property.Owner = Owner;
+    /// <summary>
+    /// Returns the remote properties for this entity.
+    /// </summary>
+    public IReadOnlyDictionary<string, RemoteProperty> GetProperties() {
+        return Properties;
     }
-    [Rem(RemAccess.Any)]
-    internal void SetPropertyRem(string Name, byte[] Value) {
+    /// <summary>
+    /// Returns the remote property for this entity.
+    /// </summary>
+    public RemoteProperty GetProperty(string PropertyName) {
+        return Properties[PropertyName];
+    }
+
+    /// <inheritdoc cref="PropertyReplicated"/>
+    public virtual void _PropertyReplicated(string PropertyName) {
+    }
+
+    /// <summary>
+    /// Remotely sets the owner of the remote property.
+    /// </summary>
+    [Rpc(MultiplayerApi.RpcMode.Authority)]
+    internal void SetPropertyOwnerRpc(byte[] PropertyNamePack, byte[] PropertyOwnerPack) {
+        // Unpack arguments
+        string PropertyName = MemoryPackSerializer.Deserialize<string>(PropertyNamePack)!;
+        int PropertyOwner = MemoryPackSerializer.Deserialize<int>(PropertyOwnerPack)!;
+
+        // Set property owner
+        RemoteProperty Property = Properties[PropertyName];
+        Property.Owner = PropertyOwner;
+    }
+    /// <summary>
+    /// Remotely sets the value of the remote property.
+    /// </summary>
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+    private void SetPropertyValueRpc(byte[] PropertyNamePack, byte[] PropertyValuePack) {
+        // Unpack arguments
         int SenderId = Multiplayer.GetRemoteSenderId();
+        string PropertyName = MemoryPackSerializer.Deserialize<string>(PropertyNamePack)!;
+        byte[] PropertyValue = MemoryPackSerializer.Deserialize<byte[]>(PropertyValuePack)!;
 
         // Ensure sender owns property
-        Property Property = Properties[Name];
-        // Note: The authority can't replicate properties it doesn't own, because the owner will overwrite it
+        RemoteProperty Property = Properties[PropertyName];
         if (Property.Owner != SenderId) {
-            throw new InvalidOperationException($"Peer tried to replicate property it doesn't own: '{Property.Name}' ({SenderId})");
+            throw new InvalidOperationException($"Peer({SenderId}) tried to replicate property it doesn't own: '{Property.Name}'");
         }
 
-        // Apply property value
-        SetProperty(Name, Value);
+        // Set property value
+        SetPropertyValue(PropertyName, PropertyValue);
     }
 }
