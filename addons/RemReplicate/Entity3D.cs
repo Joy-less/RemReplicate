@@ -112,13 +112,13 @@ public abstract partial class Entity3D : Entity {
     [Rem(RemAccess.Any, CallLocal = true)]
     private void TeleportRem([Sender] int SenderId, Vector3? Position, Vector3? Rotation, Vector3? Scale) {
         // Set properties to arguments if authorized
-        if (Position is not null && IsPropertyOwner(nameof(RemotePosition), SenderId)) {
+        if (Position is not null && (SenderId is 0 || IsPropertyOwner(nameof(RemotePosition), SenderId))) {
             this.Position = RemotePosition = Position.Value;
         }
-        if (Rotation is not null && IsPropertyOwner(nameof(RemoteRotation), SenderId)) {
+        if (Rotation is not null && (SenderId is 0 || IsPropertyOwner(nameof(RemoteRotation), SenderId))) {
             this.Rotation = RemoteRotation = Rotation.Value;
         }
-        if (Scale is not null && IsPropertyOwner(nameof(RemoteScale), SenderId)) {
+        if (Scale is not null && (SenderId is 0 || IsPropertyOwner(nameof(RemoteScale), SenderId))) {
             this.Scale = RemoteScale = Scale.Value;
         }
     }
