@@ -99,37 +99,37 @@ public partial class Replicator : Node {
     /// Finds an entity with the given ID in the replicator.
     /// </summary>
     public Entity GetEntity(Guid Id) {
-        // Find entity by ID
-        return GetNode<Entity>(Id.ToString());
+        return GetEntity<Entity>(Id);
     }
     /// <inheritdoc cref="GetEntity(Guid)"/>
     public TEntity GetEntity<TEntity>(Guid Id) where TEntity : Entity {
-        return (TEntity)GetEntity(Id);
+        // Find entity by ID
+        return GetNode<TEntity>(Id.ToString());
     }
     /// <summary>
     /// Tries to find an entity with the given ID in the replicator.
     /// </summary>
     public Entity? GetEntityOrNull(Guid? Id) {
+        return GetEntityOrNull<Entity>(Id);
+    }
+    /// <inheritdoc cref="GetEntityOrNull(Guid?)"/>
+    public TEntity? GetEntityOrNull<TEntity>(Guid? Id) where TEntity : Entity {
         // Ensure ID is not null
         if (Id is null) {
             return null;
         }
         // Find entity by ID
-        return GetNodeOrNull<Entity>(Id.Value.ToString());
-    }
-    /// <inheritdoc cref="GetEntityOrNull(Guid?)"/>
-    public TEntity? GetEntityOrNull<TEntity>(Guid? Id) where TEntity : Entity {
-        return GetEntityOrNull(Id) as TEntity;
+        return GetNodeOrNull<TEntity>(Id.Value.ToString());
     }
     /// <summary>
     /// Finds every entity in the replicator.
     /// </summary>
     public IEnumerable<Entity> GetEntities() {
-        return GetChildren().OfType<Entity>();
+        return GetEntities<Entity>();
     }
     /// <inheritdoc cref="GetEntities()"/>
     public IEnumerable<TEntity> GetEntities<TEntity>() where TEntity : Entity {
-        return GetEntities().OfType<TEntity>();
+        return GetChildren().OfType<TEntity>();
     }
     /// <summary>
     /// Returns the entities in the replicator nearest to the position.
