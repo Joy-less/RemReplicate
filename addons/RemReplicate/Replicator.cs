@@ -122,6 +122,16 @@ public partial class Replicator : Node {
         return GetNodeOrNull<TEntity>(Id.Value.ToString());
     }
     /// <summary>
+    /// Checks if there's an entity with the given ID in the replicator.
+    /// </summary>
+    public bool HasEntity(Guid? Id) {
+        return GetEntityOrNull(Id) is not null;
+    }
+    /// <inheritdoc cref="HasEntity(Guid?)"/>
+    public bool HasEntity<TEntity>(Guid? Id) where TEntity : Entity {
+        return GetEntityOrNull<TEntity>(Id) is not null;
+    }
+    /// <summary>
     /// Finds every entity in the replicator.
     /// </summary>
     public IEnumerable<Entity> GetEntities() {
