@@ -221,8 +221,8 @@ public partial class Replicator : Node {
     /// </summary>
     [Rem(RemAccess.Authority)]
     private void SpawnEntityRem(Guid EntityId, string ScenePath, Dictionary<string, byte[]> PropertyValues, Dictionary<string, int> PropertyOwners) {
-        // Spawn entity
-        SpawnEntity(ScenePath, (Entity Entity) => {
+        // Setup entity properties
+        void SetupEntity(Entity Entity) {
             // Set entity ID
             Entity.Id = EntityId;
             // Set entity property values
@@ -231,7 +231,16 @@ public partial class Replicator : Node {
             foreach ((string PropertyName, int PropertyOwner) in PropertyOwners) {
                 Entity.GetProperty(PropertyName).Owner = PropertyOwner;
             }
-        });
+        }
+
+        // Entity exists already
+        if (GetEntityOrNull(EntityId) is Entity Entity) {
+            SetupEntity(Entity);
+        }
+        // Spawn entity
+        else {
+            SpawnEntity(ScenePath, SetupEntity);
+        }
     }
     /// <summary>
     /// Remotely despawns the given entity.
